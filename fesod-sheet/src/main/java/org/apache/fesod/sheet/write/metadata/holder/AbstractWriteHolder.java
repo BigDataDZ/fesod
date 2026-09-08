@@ -42,6 +42,7 @@ import org.apache.fesod.sheet.constant.OrderConstant;
 import org.apache.fesod.sheet.converters.Converter;
 import org.apache.fesod.sheet.converters.ConverterKeyBuild;
 import org.apache.fesod.sheet.converters.DefaultConverterLoader;
+import org.apache.fesod.sheet.enums.CellDataTypeEnum;
 import org.apache.fesod.sheet.enums.HeadKindEnum;
 import org.apache.fesod.sheet.enums.HeaderMergeStrategy;
 import org.apache.fesod.sheet.event.NotRepeatExecutor;
@@ -273,11 +274,7 @@ public abstract class AbstractWriteHolder extends AbstractHolder implements Writ
             setConverterMap(new HashMap<>(parentAbstractWriteHolder.getConverterMap()));
             if (CollectionUtils.isNotEmpty(parentAbstractWriteHolder.getCustomConverterList())) {
                 for (Converter<?> converter : parentAbstractWriteHolder.getCustomConverterList()) {
-                    getConverterMap()
-                            .put(
-                                    ConverterKeyBuild.buildKey(
-                                            converter.supportJavaTypeKey(), converter.supportExcelTypeKey()),
-                                    converter);
+                    registerCustomConverter(converter);
                 }
             }
         }
@@ -285,12 +282,24 @@ public abstract class AbstractWriteHolder extends AbstractHolder implements Writ
                 && !writeBasicParameter.getCustomConverterList().isEmpty()) {
             this.customConverterList = writeBasicParameter.getCustomConverterList();
             for (Converter<?> converter : writeBasicParameter.getCustomConverterList()) {
-                getConverterMap()
-                        .put(
-                                ConverterKeyBuild.buildKey(
-                                        converter.supportJavaTypeKey(), converter.supportExcelTypeKey()),
-                                converter);
+                registerCustomConverter(converter);
             }
+        }
+    }
+
+    private void registerCustomConverter(Converter<?> converter) {
+        getConverterMap()
+                .put(
+                        ConverterKeyBuild.buildKey(converter.supportJavaTypeKey(), converter.supportExcelTypeKey()),
+                        converter);
+        if (converter.supportExcelTypeKey() == null) {
+            // CSV writing resolves every cell to STRING before the converter lookup
+            // (see AbstractExcelWriteExecutor#doConvert), so a converter registered without
+            // a specific cell type must also claim the STRING key to be usable in both modes.
+            getConverterMap()
+                    .put(
+                            ConverterKeyBuild.buildKey(converter.supportJavaTypeKey(), CellDataTypeEnum.STRING),
+                            converter);
         }
     }
 
